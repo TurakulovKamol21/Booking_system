@@ -16,24 +16,38 @@ import java.util.UUID;
 public class GuestService {
 
     private final GuestRepository guestRepository;
+    private final HotelAccessService hotelAccessService;
 
-    public GuestService(GuestRepository guestRepository) {
+    public GuestService(GuestRepository guestRepository, HotelAccessService hotelAccessService) {
         this.guestRepository = guestRepository;
+        this.hotelAccessService = hotelAccessService;
     }
 
     public Mono<GuestResponse> create(CreateGuestRequest request) {
-        GuestEntity entity = new GuestEntity();
-        entity.setFullName(request.fullName());
-        entity.setEmail(request.email());
-        entity.setCreatedAt(Instant.now());
+        return hotelAccessService.currentScope()
+                .flatMap(scope -> hotelAccessService.resolveHotelForWrite(scope, request.hotelId()))
+                .flatMap(hotelId -> {
+                    GuestEntity entity = new GuestEntity();
+                    entity.setHotelId(hotelId);
+                    entity.setFullName(request.fullName());
+                    entity.setEmail(request.email());
+                    entity.setCreatedAt(Instant.now());
 
-        return guestRepository.save(entity)
-                .map(this::toResponse);
+                    return guestRepository.save(entity).map(this::toResponse);
+                });
     }
 
     public Mono<GuestEntity> getEntityById(UUID id) {
-        return guestRepository.findById(id)
-                .switchIfEmpty(Mono.error(new NotFoundException("Guest not found: " + id)));
+        return hotelAccessService.currentScope()
+                .flatMap(scope -> getEntityById(id, scope));
+    }
+
+    Mono<GuestEntity> getEntityById(UUID id, HotelAccessService.AccessScope scope) {
+        Mono<GuestEntity> source = scope.superAdmin()
+                ? guestRepository.findById(id)
+                : guestRepository.findByIdAndHotelId(id, scope.requiredHotelId());
+
+        return source.switchIfEmpty(Mono.error(new NotFoundException("Guest not found: " + id)));
     }
 
     public Mono<GuestResponse> getById(UUID id) {
@@ -41,12 +55,20 @@ public class GuestService {
     }
 
     public Flux<GuestResponse> getAll() {
-        return guestRepository.findAll().map(this::toResponse);
+        return hotelAccessService.currentScope()
+                .flatMapMany(scope -> {
+                    if (scope.superAdmin()) {
+                        return guestRepository.findAll();
+                    }
+                    return guestRepository.findAllByHotelId(scope.requiredHotelId());
+                })
+                .map(this::toResponse);
     }
 
     private GuestResponse toResponse(GuestEntity entity) {
         return new GuestResponse(
                 entity.getId(),
+                entity.getHotelId(),
                 entity.getFullName(),
                 entity.getEmail(),
                 entity.getCreatedAt()

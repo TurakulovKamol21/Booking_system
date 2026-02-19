@@ -55,8 +55,12 @@ class BookingServiceTest {
     @Mock
     private ReactiveValueOperations<String, String> valueOperations;
 
+    @Mock
+    private HotelAccessService hotelAccessService;
+
     private BookingService bookingService;
     private ObjectMapper objectMapper;
+    private UUID hotelId;
 
     @BeforeEach
     void setUp() {
@@ -64,15 +68,20 @@ class BookingServiceTest {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
+        hotelId = UUID.randomUUID();
+
         bookingService = new BookingService(
                 bookingRepository,
                 guestService,
                 roomService,
                 bookingRecommendationService,
                 redisTemplate,
-                objectMapper
+                objectMapper,
+                hotelAccessService
         );
 
+        lenient().when(hotelAccessService.currentScope())
+                .thenReturn(Mono.just(new HotelAccessService.AccessScope("test_user", null, true)));
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.set(anyString(), anyString(), any(Duration.class))).thenReturn(Mono.just(true));
     }
@@ -82,11 +91,11 @@ class BookingServiceTest {
         UUID guestId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();
 
-        GuestEntity guest = new GuestEntity(guestId, "John Guest", "john@example.com", Instant.now());
-        RoomEntity room = new RoomEntity(roomId, "501", "DELUXE", new BigDecimal("120.00"), Instant.now());
+        GuestEntity guest = new GuestEntity(guestId, hotelId, "John Guest", "john@example.com", Instant.now());
+        RoomEntity room = new RoomEntity(roomId, hotelId, "501", "DELUXE", new BigDecimal("120.00"), null, null, Instant.now());
 
-        when(guestService.getEntityById(guestId)).thenReturn(Mono.just(guest));
-        when(roomService.getEntityById(roomId)).thenReturn(Mono.just(room));
+        when(guestService.getEntityById(eq(guestId), any(HotelAccessService.AccessScope.class))).thenReturn(Mono.just(guest));
+        when(roomService.getEntityById(eq(roomId), any(HotelAccessService.AccessScope.class))).thenReturn(Mono.just(room));
         when(bookingRepository.save(any(BookingEntity.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
         when(bookingRecommendationService.generateInitialRecommendation(any(BookingEntity.class))).thenReturn(Mono.empty());
 
@@ -99,6 +108,7 @@ class BookingServiceTest {
 
         StepVerifier.create(bookingService.create(request))
                 .assertNext(response -> {
+                    org.junit.jupiter.api.Assertions.assertEquals(hotelId, response.hotelId());
                     org.junit.jupiter.api.Assertions.assertEquals(guestId, response.guestId());
                     org.junit.jupiter.api.Assertions.assertEquals(roomId, response.roomId());
                     org.junit.jupiter.api.Assertions.assertEquals(BookingStatus.CREATED, response.status());
@@ -115,6 +125,7 @@ class BookingServiceTest {
         UUID bookingId = UUID.randomUUID();
         BookingResponse cachedResponse = new BookingResponse(
                 bookingId,
+                hotelId,
                 UUID.randomUUID(),
                 "Cached Guest",
                 UUID.randomUUID(),
@@ -127,7 +138,7 @@ class BookingServiceTest {
         );
 
         String payload = objectMapper.writeValueAsString(cachedResponse);
-        when(valueOperations.get(eq("booking:cache:" + bookingId))).thenReturn(Mono.just(payload));
+        when(valueOperations.get(eq("booking:cache:" + bookingId + ":all"))).thenReturn(Mono.just(payload));
 
         StepVerifier.create(bookingService.getById(bookingId))
                 .expectNextMatches(response -> response.id().equals(bookingId) && response.guestFullName().equals("Cached Guest"))

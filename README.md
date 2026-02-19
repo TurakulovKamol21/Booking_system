@@ -15,12 +15,18 @@ Reactive hotel booking backend aligned with Java 17 + Spring Boot 3.x requiremen
 - OpenAPI/Swagger
 
 ## Functional Scope
+- Hotel list API with per-user hotel scope
+- SUPER_ADMIN role for full cross-hotel access
 - Guest management API
 - Room management API
 - Booking lifecycle API (create/get/list/status update)
 - Booking recommendation API
 
 ## API Endpoints
+- `GET /api/v1/public/home`
+- `GET /api/v1/public/hotels`
+- `GET /api/v1/public/rooms/highlights`
+- `GET /api/v1/hotels`
 - `POST /api/v1/guests`
 - `GET /api/v1/guests`
 - `POST /api/v1/rooms`
@@ -92,6 +98,14 @@ Important:
 ```bash
 mvn clean verify
 ```
+
+## Seeded Demo Data
+- Flyway `V4__bulk_demo_data.sql` seeds 10+ records for:
+  - guests
+  - rooms (with internet image URLs)
+  - bookings
+  - landing amenities
+  - landing offers
 
 ## Project Structure
 - `src/main/java/com/autoguide/backend/config` - security and OpenAPI config

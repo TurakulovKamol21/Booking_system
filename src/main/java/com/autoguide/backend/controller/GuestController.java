@@ -30,19 +30,19 @@ public class GuestController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public Mono<GuestResponse> create(@Valid @RequestBody CreateGuestRequest request) {
         return guestService.create(request);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Flux<GuestResponse> getAll() {
         return guestService.getAll();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Mono<GuestResponse> getById(@PathVariable UUID id) {
         return guestService.getById(id);
     }

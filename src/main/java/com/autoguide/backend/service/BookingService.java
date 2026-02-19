@@ -35,6 +35,7 @@ public class BookingService {
     private final BookingRecommendationService bookingRecommendationService;
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final HotelAccessService hotelAccessService;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -42,7 +43,8 @@ public class BookingService {
             RoomService roomService,
             BookingRecommendationService bookingRecommendationService,
             ReactiveStringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            HotelAccessService hotelAccessService
     ) {
         this.bookingRepository = bookingRepository;
         this.guestService = guestService;
@@ -50,75 +52,106 @@ public class BookingService {
         this.bookingRecommendationService = bookingRecommendationService;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.hotelAccessService = hotelAccessService;
     }
 
     public Mono<BookingResponse> create(CreateBookingRequest request) {
         return validateDates(request.checkInDate(), request.checkOutDate())
-                .then(Mono.zip(
-                        guestService.getEntityById(request.guestId()),
-                        roomService.getEntityById(request.roomId())
-                ))
-                .flatMap(tuple -> {
-                    GuestEntity guest = tuple.getT1();
-                    RoomEntity room = tuple.getT2();
+                .then(hotelAccessService.currentScope())
+                .flatMap(scope -> Mono.zip(
+                                guestService.getEntityById(request.guestId(), scope),
+                                roomService.getEntityById(request.roomId(), scope)
+                        )
+                        .flatMap(tuple -> {
+                            GuestEntity guest = tuple.getT1();
+                            RoomEntity room = tuple.getT2();
 
-                    Instant now = Instant.now();
-                    BookingEntity entity = new BookingEntity();
-                    entity.setGuestId(guest.getId());
-                    entity.setRoomId(room.getId());
-                    entity.setCheckInDate(request.checkInDate());
-                    entity.setCheckOutDate(request.checkOutDate());
-                    entity.setStatus(BookingStatus.CREATED);
-                    entity.setCreatedAt(now);
-                    entity.setUpdatedAt(now);
+                            if (!room.getHotelId().equals(guest.getHotelId())) {
+                                return Mono.error(new ResponseStatusException(
+                                        HttpStatus.BAD_REQUEST,
+                                        "Guest and room must belong to the same hotel"
+                                ));
+                            }
 
-                    return bookingRepository.save(entity)
-                            .flatMap(saved -> bookingRecommendationService.generateInitialRecommendation(saved)
-                                    .then(enrichBooking(saved, guest, room)))
-                            .flatMap(this::cacheResponse);
-                });
+                            Instant now = Instant.now();
+                            BookingEntity entity = new BookingEntity();
+                            entity.setHotelId(room.getHotelId());
+                            entity.setGuestId(guest.getId());
+                            entity.setRoomId(room.getId());
+                            entity.setCheckInDate(request.checkInDate());
+                            entity.setCheckOutDate(request.checkOutDate());
+                            entity.setStatus(BookingStatus.CREATED);
+                            entity.setCreatedAt(now);
+                            entity.setUpdatedAt(now);
+
+                            return bookingRepository.save(entity)
+                                    .flatMap(saved -> bookingRecommendationService.generateInitialRecommendation(saved)
+                                            .then(enrichBooking(saved, guest, room)))
+                                    .flatMap(response -> cacheResponse(response, scope));
+                        }));
     }
 
     public Mono<BookingResponse> getById(UUID id) {
-        String key = cacheKey(id);
-        ReactiveValueOperations<String, String> valueOps = redisTemplate.opsForValue();
+        return hotelAccessService.currentScope()
+                .flatMap(scope -> {
+                    String key = cacheKey(id, scope);
+                    ReactiveValueOperations<String, String> valueOps = redisTemplate.opsForValue();
 
-        return valueOps.get(key)
-                .flatMap(this::deserialize)
-                .switchIfEmpty(Mono.defer(() -> loadFromDbAndCache(id)));
+                    return valueOps.get(key)
+                            .flatMap(this::deserialize)
+                            .switchIfEmpty(Mono.defer(() -> loadFromDbAndCache(id, scope)));
+                });
     }
 
     public Flux<BookingResponse> getAll(BookingStatus status) {
-        Flux<BookingEntity> source = status == null
-                ? bookingRepository.findAll()
-                : bookingRepository.findAllByStatus(status);
+        return hotelAccessService.currentScope()
+                .flatMapMany(scope -> {
+                    Flux<BookingEntity> source;
+                    if (scope.superAdmin()) {
+                        source = status == null
+                                ? bookingRepository.findAll()
+                                : bookingRepository.findAllByStatus(status);
+                    } else {
+                        UUID hotelId = scope.requiredHotelId();
+                        source = status == null
+                                ? bookingRepository.findAllByHotelId(hotelId)
+                                : bookingRepository.findAllByHotelIdAndStatus(hotelId, status);
+                    }
 
-        return source.flatMap(this::enrichBooking);
+                    return source.flatMap(booking -> enrichBooking(booking, scope));
+                });
     }
 
     public Mono<BookingResponse> updateStatus(UUID id, UpdateBookingStatusRequest request) {
-        return bookingRepository.findById(id)
-                .switchIfEmpty(Mono.error(new NotFoundException("Booking not found: " + id)))
-                .flatMap(existing -> {
-                    existing.setStatus(request.status());
-                    existing.setUpdatedAt(Instant.now());
-                    return bookingRepository.save(existing);
-                })
-                .flatMap(this::enrichBooking)
-                .flatMap(this::cacheResponse);
+        return hotelAccessService.currentScope()
+                .flatMap(scope -> scopedFindById(id, scope)
+                        .flatMap(existing -> {
+                            existing.setStatus(request.status());
+                            existing.setUpdatedAt(Instant.now());
+                            return bookingRepository.save(existing);
+                        })
+                        .flatMap(booking -> enrichBooking(booking, scope))
+                        .flatMap(response -> cacheResponse(response, scope)));
     }
 
-    private Mono<BookingResponse> loadFromDbAndCache(UUID id) {
-        return bookingRepository.findById(id)
-                .switchIfEmpty(Mono.error(new NotFoundException("Booking not found: " + id)))
-                .flatMap(this::enrichBooking)
-                .flatMap(this::cacheResponse);
+    private Mono<BookingResponse> loadFromDbAndCache(UUID id, HotelAccessService.AccessScope scope) {
+        return scopedFindById(id, scope)
+                .flatMap(booking -> enrichBooking(booking, scope))
+                .flatMap(response -> cacheResponse(response, scope));
     }
 
-    private Mono<BookingResponse> enrichBooking(BookingEntity booking) {
+    private Mono<BookingEntity> scopedFindById(UUID id, HotelAccessService.AccessScope scope) {
+        Mono<BookingEntity> source = scope.superAdmin()
+                ? bookingRepository.findById(id)
+                : bookingRepository.findByIdAndHotelId(id, scope.requiredHotelId());
+
+        return source.switchIfEmpty(Mono.error(new NotFoundException("Booking not found: " + id)));
+    }
+
+    private Mono<BookingResponse> enrichBooking(BookingEntity booking, HotelAccessService.AccessScope scope) {
         return Mono.zip(
-                        guestService.getEntityById(booking.getGuestId()),
-                        roomService.getEntityById(booking.getRoomId())
+                        guestService.getEntityById(booking.getGuestId(), scope),
+                        roomService.getEntityById(booking.getRoomId(), scope)
                 )
                 .flatMap(tuple -> enrichBooking(booking, tuple.getT1(), tuple.getT2()));
     }
@@ -126,6 +159,7 @@ public class BookingService {
     private Mono<BookingResponse> enrichBooking(BookingEntity booking, GuestEntity guest, RoomEntity room) {
         return Mono.just(new BookingResponse(
                 booking.getId(),
+                booking.getHotelId(),
                 booking.getGuestId(),
                 guest.getFullName(),
                 booking.getRoomId(),
@@ -138,11 +172,11 @@ public class BookingService {
         ));
     }
 
-    private Mono<BookingResponse> cacheResponse(BookingResponse response) {
+    private Mono<BookingResponse> cacheResponse(BookingResponse response, HotelAccessService.AccessScope scope) {
         try {
             String serialized = objectMapper.writeValueAsString(response);
             return redisTemplate.opsForValue()
-                    .set(cacheKey(response.id()), serialized, CACHE_TTL)
+                    .set(cacheKey(response.id(), scope), serialized, CACHE_TTL)
                     .thenReturn(response)
                     .onErrorReturn(response);
         } catch (JsonProcessingException e) {
@@ -169,7 +203,8 @@ public class BookingService {
         return Mono.empty();
     }
 
-    private String cacheKey(UUID bookingId) {
-        return "booking:cache:" + bookingId;
+    private String cacheKey(UUID bookingId, HotelAccessService.AccessScope scope) {
+        String scopeKey = scope.superAdmin() ? "all" : "hotel:" + scope.requiredHotelId();
+        return "booking:cache:" + bookingId + ":" + scopeKey;
     }
 }

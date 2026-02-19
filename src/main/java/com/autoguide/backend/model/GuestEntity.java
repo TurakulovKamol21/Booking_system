@@ -11,6 +11,7 @@ public class GuestEntity {
 
     @Id
     private UUID id;
+    private UUID hotelId;
     private String fullName;
     private String email;
     private Instant createdAt;
@@ -18,11 +19,16 @@ public class GuestEntity {
     public GuestEntity() {
     }
 
-    public GuestEntity(UUID id, String fullName, String email, Instant createdAt) {
+    public GuestEntity(UUID id, UUID hotelId, String fullName, String email, Instant createdAt) {
         this.id = id;
+        this.hotelId = hotelId;
         this.fullName = fullName;
         this.email = email;
         this.createdAt = createdAt;
+    }
+
+    public GuestEntity(UUID id, String fullName, String email, Instant createdAt) {
+        this(id, null, fullName, email, createdAt);
     }
 
     public UUID getId() {
@@ -31,6 +37,14 @@ public class GuestEntity {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getHotelId() {
+        return hotelId;
+    }
+
+    public void setHotelId(UUID hotelId) {
+        this.hotelId = hotelId;
     }
 
     public String getFullName() {

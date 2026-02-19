@@ -6,9 +6,12 @@ import java.util.UUID;
 
 public record RoomResponse(
         UUID id,
+        UUID hotelId,
         String roomNumber,
         String roomType,
         BigDecimal nightlyRate,
+        String imageUrl,
+        String shortDescription,
         Instant createdAt
 ) {
 }

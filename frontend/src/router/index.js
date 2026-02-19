@@ -6,10 +6,12 @@ import RegisterView from "../views/RegisterView.vue";
 import GuestsView from "../views/GuestsView.vue";
 import RoomsView from "../views/RoomsView.vue";
 import BookingsView from "../views/BookingsView.vue";
+import HotelsView from "../views/HotelsView.vue";
 
 const routes = [
-  { path: "/", name: "dashboard", component: DashboardView, meta: { requiresAuth: true } },
+  { path: "/", name: "dashboard", component: DashboardView, meta: { requiresAuth: false } },
   { path: "/guests", name: "guests", component: GuestsView, meta: { requiresAuth: true } },
+  { path: "/hotels", name: "hotels", component: HotelsView, meta: { requiresAuth: false } },
   { path: "/rooms", name: "rooms", component: RoomsView, meta: { requiresAuth: true } },
   { path: "/bookings", name: "bookings", component: BookingsView, meta: { requiresAuth: true } },
   { path: "/login", name: "login", component: LoginView },

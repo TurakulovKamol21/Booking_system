@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Deluxe room">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2f8ff"/>
+      <stop offset="100%" stop-color="#d9ecff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#bg)"/>
+  <rect x="100" y="330" width="1000" height="200" rx="20" fill="#ffffff"/>
+  <rect x="170" y="270" width="460" height="85" rx="12" fill="#e8f3ff"/>
+  <rect x="660" y="270" width="360" height="85" rx="12" fill="#e8f3ff"/>
+  <rect x="220" y="360" width="160" height="110" rx="14" fill="#c8e2ff"/>
+  <rect x="410" y="360" width="160" height="110" rx="14" fill="#c8e2ff"/>
+  <rect x="760" y="360" width="230" height="120" rx="16" fill="#a9d2ff"/>
+  <circle cx="1050" cy="120" r="64" fill="#b8dbff"/>
+  <text x="120" y="120" font-size="68" font-family="Arial, sans-serif" font-weight="700" fill="#3174b8">DELUXE</text>
+</svg>

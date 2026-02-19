@@ -6,6 +6,7 @@ import {
   fetchBookingRecommendations,
   fetchBookings,
   fetchGuests,
+  fetchHotels,
   fetchRooms,
   getErrorMessage,
   updateBookingStatus
@@ -22,6 +23,7 @@ const ok = ref("");
 
 const guests = ref([]);
 const rooms = ref([]);
+const hotels = ref([]);
 const bookings = ref([]);
 const statusDraft = reactive({});
 
@@ -58,9 +60,10 @@ function syncStatusDraft() {
 }
 
 async function loadBaseData() {
-  const [guestData, roomData] = await Promise.all([fetchGuests(), fetchRooms()]);
+  const [guestData, roomData, hotelData] = await Promise.all([fetchGuests(), fetchRooms(), fetchHotels()]);
   guests.value = guestData;
   rooms.value = roomData;
+  hotels.value = hotelData;
 
   if (!createForm.guestId && guests.value.length) {
     createForm.guestId = guests.value[0].id;
@@ -68,6 +71,11 @@ async function loadBaseData() {
   if (!createForm.roomId && rooms.value.length) {
     createForm.roomId = rooms.value[0].id;
   }
+}
+
+function resolveHotelName(hotelId) {
+  const hotel = hotels.value.find((item) => item.id === hotelId);
+  return hotel ? hotel.name : hotelId;
 }
 
 async function loadBookings() {
@@ -219,6 +227,7 @@ onMounted(loadAll);
             <tr>
               <th>ID</th>
               <th>Guest</th>
+              <th>Hotel</th>
               <th>Room</th>
               <th>Stay</th>
               <th>Status</th>
@@ -229,6 +238,7 @@ onMounted(loadAll);
             <tr v-for="booking in bookings" :key="booking.id">
               <td class="mono">{{ booking.id }}</td>
               <td>{{ booking.guestFullName }}</td>
+              <td>{{ resolveHotelName(booking.hotelId) }}</td>
               <td>{{ booking.roomNumber }}</td>
               <td>{{ booking.checkInDate }} -> {{ booking.checkOutDate }}</td>
               <td>
@@ -253,7 +263,7 @@ onMounted(loadAll);
               </td>
             </tr>
             <tr v-if="!bookings.length">
-              <td colspan="6">No bookings yet</td>
+              <td colspan="7">No bookings yet</td>
             </tr>
           </tbody>
         </table>

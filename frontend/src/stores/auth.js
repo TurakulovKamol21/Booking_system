@@ -41,8 +41,14 @@ export const useAuthStore = defineStore("auth", {
     hasToken(state) {
       return Boolean(state.accessToken);
     },
+    hasSuperAdminRole(state) {
+      return state.roles.includes("super_admin");
+    },
     hasAdminRole(state) {
       return state.roles.includes("admin");
+    },
+    hasOperatorRole(state) {
+      return state.roles.includes("operator");
     }
   },
   actions: {

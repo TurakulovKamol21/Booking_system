@@ -12,6 +12,7 @@ public class BookingEntity {
 
     @Id
     private UUID id;
+    private UUID hotelId;
     private UUID guestId;
     private UUID roomId;
     private LocalDate checkInDate;
@@ -25,6 +26,7 @@ public class BookingEntity {
 
     public BookingEntity(
             UUID id,
+            UUID hotelId,
             UUID guestId,
             UUID roomId,
             LocalDate checkInDate,
@@ -34,6 +36,7 @@ public class BookingEntity {
             Instant updatedAt
     ) {
         this.id = id;
+        this.hotelId = hotelId;
         this.guestId = guestId;
         this.roomId = roomId;
         this.checkInDate = checkInDate;
@@ -43,12 +46,33 @@ public class BookingEntity {
         this.updatedAt = updatedAt;
     }
 
+    public BookingEntity(
+            UUID id,
+            UUID guestId,
+            UUID roomId,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            BookingStatus status,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this(id, null, guestId, roomId, checkInDate, checkOutDate, status, createdAt, updatedAt);
+    }
+
     public UUID getId() {
         return id;
     }
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getHotelId() {
+        return hotelId;
+    }
+
+    public void setHotelId(UUID hotelId) {
+        this.hotelId = hotelId;
     }
 
     public UUID getGuestId() {

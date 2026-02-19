@@ -34,25 +34,25 @@ public class BookingController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Mono<BookingResponse> create(@Valid @RequestBody CreateBookingRequest request) {
         return bookingService.create(request);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Mono<BookingResponse> getById(@PathVariable UUID id) {
         return bookingService.getById(id);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Flux<BookingResponse> getAll(@RequestParam(required = false) BookingStatus status) {
         return bookingService.getAll(status);
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Mono<BookingResponse> updateStatus(@PathVariable UUID id,
                                               @Valid @RequestBody UpdateBookingStatusRequest request) {
         return bookingService.updateStatus(id, request);

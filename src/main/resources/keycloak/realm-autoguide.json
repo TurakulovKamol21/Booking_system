@@ -1,12 +1,13 @@
 {
   "realm": "autoguide",
   "enabled": true,
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "roles": {
     "realm": [
+      {"name": "super_admin", "description": "Super administrator role"},
       {"name": "admin", "description": "Administrator role"},
       {"name": "operator", "description": "Operator role"}
     ]
@@ -28,6 +29,22 @@
     }
   ],
   "users": [
+    {
+      "username": "super_admin_user",
+      "enabled": true,
+      "email": "super_admin_user@example.com",
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "superadmin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["super_admin", "admin", "operator"]
+    },
     {
       "username": "admin_user",
       "enabled": true,

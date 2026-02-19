@@ -46,9 +46,47 @@ export async function fetchHealth() {
   return data;
 }
 
+export async function fetchPublicHomeContent() {
+  const { data } = await http.get("/api/v1/public/home");
+  return data;
+}
+
+export async function fetchPublicRoomHighlights(limit = 6, hotelId = null) {
+  const params = { limit };
+  if (hotelId) {
+    params.hotelId = hotelId;
+  }
+  const { data } = await http.get("/api/v1/public/rooms/highlights", { params });
+  return data;
+}
+
+export async function fetchPublicHotels() {
+  const { data } = await http.get("/api/v1/public/hotels");
+  return data;
+}
+
 export async function fetchGuests() {
   const { data } = await http.get("/api/v1/guests");
   return data;
+}
+
+export async function fetchHotels() {
+  const { data } = await http.get("/api/v1/hotels");
+  return data;
+}
+
+export async function createHotel(payload) {
+  const { data } = await http.post("/api/v1/hotels", payload);
+  return data;
+}
+
+export async function updateHotel(id, payload) {
+  const { data } = await http.put(`/api/v1/hotels/${id}`, payload);
+  return data;
+}
+
+export async function deleteHotel(id) {
+  await http.delete(`/api/v1/hotels/${id}`);
 }
 
 export async function createGuest(payload) {
@@ -64,6 +102,15 @@ export async function fetchRooms() {
 export async function createRoom(payload) {
   const { data } = await http.post("/api/v1/rooms", payload);
   return data;
+}
+
+export async function updateRoom(id, payload) {
+  const { data } = await http.put(`/api/v1/rooms/${id}`, payload);
+  return data;
+}
+
+export async function deleteRoom(id) {
+  await http.delete(`/api/v1/rooms/${id}`);
 }
 
 export async function fetchBookings(status) {

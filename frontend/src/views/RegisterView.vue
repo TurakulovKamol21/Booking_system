@@ -21,7 +21,7 @@ const registrationUrl = computed(() => getKeycloakRegistrationUrl());
       </div>
 
       <p class="message" style="margin-top: 14px">
-        Eslatma: agar realmda registration o'chirilgan bo'lsa, Keycloak sahifasi ham signupni bloklaydi.
+        Eslatma: signup Keycloak ichida ochilgan bo'lishi kerak (`registrationAllowed=true`).
       </p>
     </article>
   </section>

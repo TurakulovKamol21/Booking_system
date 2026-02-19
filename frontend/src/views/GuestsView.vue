@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useAuthStore } from "../stores/auth";
-import { createGuest, fetchGuests, getErrorMessage } from "../lib/api";
+import { createGuest, fetchGuests, fetchHotels, getErrorMessage } from "../lib/api";
 
 const auth = useAuthStore();
 const guests = ref([]);
+const hotels = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
@@ -14,8 +15,16 @@ const authModalType = ref("auth");
 
 const form = reactive({
   fullName: "",
-  email: ""
+  email: "",
+  hotelId: ""
 });
+
+const hotelNameMap = computed(() =>
+  hotels.value.reduce((acc, hotel) => {
+    acc[hotel.id] = hotel.name;
+    return acc;
+  }, {})
+);
 
 async function loadGuests() {
   loading.value = true;
@@ -27,6 +36,21 @@ async function loadGuests() {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadHotels() {
+  try {
+    hotels.value = await fetchHotels();
+    if (!form.hotelId && hotels.value.length) {
+      form.hotelId = hotels.value[0].id;
+    }
+  } catch (err) {
+    error.value = getErrorMessage(err);
+  }
+}
+
+async function loadAll() {
+  await Promise.all([loadGuests(), loadHotels()]);
 }
 
 async function submitGuest() {
@@ -47,9 +71,23 @@ async function submitGuest() {
   error.value = "";
   ok.value = "";
   try {
-    await createGuest(form);
+    const payload = {
+      fullName: form.fullName,
+      email: form.email,
+      hotelId: auth.hasSuperAdminRole ? form.hotelId || null : null
+    };
+
+    if (auth.hasSuperAdminRole && !payload.hotelId) {
+      throw new Error("Super admin guest yaratishda hotel tanlashi kerak.");
+    }
+
+    await createGuest(payload);
     form.fullName = "";
     form.email = "";
+    if (auth.hasSuperAdminRole && hotels.value.length) {
+      form.hotelId = hotels.value[0].id;
+    }
+
     ok.value = "Guest created";
     await loadGuests();
   } catch (err) {
@@ -59,7 +97,7 @@ async function submitGuest() {
   }
 }
 
-onMounted(loadGuests);
+onMounted(loadAll);
 </script>
 
 <template>
@@ -77,11 +115,20 @@ onMounted(loadGuests);
           <input v-model="form.email" type="email" maxlength="180" required />
         </div>
 
+        <div class="field" v-if="auth.hasSuperAdminRole">
+          <label>Hotel</label>
+          <select v-model="form.hotelId" required>
+            <option v-for="hotel in hotels" :key="hotel.id" :value="hotel.id">
+              {{ hotel.code }} / {{ hotel.name }}
+            </option>
+          </select>
+        </div>
+
         <div class="actions" style="grid-column: 1 / -1">
           <button class="btn btn-primary" type="submit" :disabled="saving">
             {{ saving ? "Saving..." : "Create guest" }}
           </button>
-          <button class="btn btn-secondary" type="button" :disabled="loading" @click="loadGuests">
+          <button class="btn btn-secondary" type="button" :disabled="loading" @click="loadAll">
             {{ loading ? "Loading..." : "Refresh" }}
           </button>
         </div>
@@ -98,6 +145,7 @@ onMounted(loadGuests);
           <thead>
             <tr>
               <th>ID</th>
+              <th>Hotel</th>
               <th>Full name</th>
               <th>Email</th>
               <th>Created</th>
@@ -106,12 +154,13 @@ onMounted(loadGuests);
           <tbody>
             <tr v-for="guest in guests" :key="guest.id">
               <td class="mono">{{ guest.id }}</td>
+              <td>{{ hotelNameMap[guest.hotelId] || guest.hotelId }}</td>
               <td>{{ guest.fullName }}</td>
               <td>{{ guest.email }}</td>
               <td>{{ new Date(guest.createdAt).toLocaleString() }}</td>
             </tr>
             <tr v-if="!guests.length">
-              <td colspan="4">No guests yet</td>
+              <td colspan="5">No guests yet</td>
             </tr>
           </tbody>
         </table>

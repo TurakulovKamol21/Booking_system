@@ -47,9 +47,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
-                                "/webjars/swagger-ui/**"
+                                "/webjars/swagger-ui/**",
+                                "/assets/**",
+                                "/uploads/**",
+                                "/api/v1/public/**"
                         ).permitAll()
-                        .pathMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .pathMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .pathMatchers("/api/v1/**").authenticated()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))

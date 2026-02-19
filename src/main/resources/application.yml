@@ -4,6 +4,9 @@ server:
 app:
   security:
     enabled: true
+  uploads:
+    base-path: ${APP_UPLOAD_BASE_PATH:${user.dir}/uploads}
+    public-base-path: /uploads
 
 spring:
   application:
