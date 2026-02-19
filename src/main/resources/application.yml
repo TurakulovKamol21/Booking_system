@@ -1,0 +1,58 @@
+server:
+  port: 8090
+
+app:
+  security:
+    enabled: true
+
+spring:
+  application:
+    name: autoguide-backend
+  r2dbc:
+    url: r2dbc:postgresql://${APP_POSTGRES_HOST:localhost}:${APP_POSTGRES_PORT:5432}/${APP_POSTGRES_DB:autoguide}
+    username: ${APP_POSTGRES_USER:autoguide}
+    password: ${APP_POSTGRES_PASSWORD:autoguide}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    url: jdbc:postgresql://${APP_POSTGRES_HOST:localhost}:${APP_POSTGRES_PORT:5432}/${APP_POSTGRES_DB:autoguide}
+    user: ${APP_POSTGRES_USER:autoguide}
+    password: ${APP_POSTGRES_PASSWORD:autoguide}
+    baseline-on-migrate: true
+    baseline-version: 0
+  data:
+    mongodb:
+      uri: ${APP_MONGO_URI:mongodb://localhost:27017/autoguide}
+      repositories:
+        enabled: false
+    redis:
+      host: ${APP_REDIS_HOST:localhost}
+      port: ${APP_REDIS_PORT:6379}
+      repositories:
+        enabled: false
+    r2dbc:
+      repositories:
+        enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${APP_SECURITY_ISSUER_URI:http://localhost:8081/realms/autoguide}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    org.springframework.security: INFO

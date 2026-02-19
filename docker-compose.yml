@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: autoguide-postgres
+    environment:
+      POSTGRES_DB: autoguide
+      POSTGRES_USER: autoguide
+      POSTGRES_PASSWORD: autoguide
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: autoguide-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: autoguide-redis
+    ports:
+      - "6379:6379"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: autoguide-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./src/main/resources/keycloak/realm-autoguide.json:/opt/keycloak/data/import/realm-autoguide.json
+
+  app:
+    build: .
+    container_name: autoguide-backend
+    depends_on:
+      - postgres
+      - mongo
+      - redis
+      - keycloak
+    environment:
+      APP_POSTGRES_HOST: postgres
+      APP_POSTGRES_PORT: 5432
+      APP_POSTGRES_DB: autoguide
+      APP_POSTGRES_USER: autoguide
+      APP_POSTGRES_PASSWORD: autoguide
+      APP_MONGO_URI: mongodb://mongo:27017/autoguide
+      APP_REDIS_HOST: redis
+      APP_REDIS_PORT: 6379
+      APP_SECURITY_ISSUER_URI: http://keycloak:8080/realms/autoguide
+    ports:
+      - "8080:8080"
+
+volumes:
+  pg_data:
+  mongo_data:

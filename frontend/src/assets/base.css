@@ -1,0 +1,323 @@
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600&display=swap");
+
+:root {
+  --bg-a: #0b1016;
+  --bg-b: #152431;
+  --bg-c: #213c45;
+  --surface: rgba(15, 23, 34, 0.72);
+  --surface-soft: rgba(20, 31, 44, 0.58);
+  --line: rgba(167, 224, 212, 0.25);
+  --text: #eaf4f2;
+  --muted: #95acb0;
+  --accent: #7ce3a1;
+  --accent-strong: #33b9aa;
+  --danger: #ff7d8f;
+  --shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(72, 173, 138, 0.28) 0, transparent 36%),
+    radial-gradient(circle at 82% 15%, rgba(57, 130, 185, 0.26) 0, transparent 35%),
+    linear-gradient(140deg, var(--bg-a), var(--bg-b) 45%, var(--bg-c));
+  color: var(--text);
+  font-family: "Sora", sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Chakra Petch", sans-serif;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.app-shell {
+  width: min(1200px, 94vw);
+  margin: 20px auto 36px;
+}
+
+.top-nav {
+  backdrop-filter: blur(10px);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
+  box-shadow: var(--shadow);
+  animation: in-top 500ms ease;
+}
+
+@keyframes in-top {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.brand-kicker {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.brand-block h1 {
+  margin-top: 4px;
+  font-size: 28px;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-link {
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  transition: 180ms ease;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.nav-link.active {
+  background: rgba(124, 227, 161, 0.16);
+  color: var(--text);
+  border-color: rgba(124, 227, 161, 0.4);
+}
+
+.auth-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pill {
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.main-shell {
+  margin-top: 16px;
+  animation: in-main 540ms ease;
+}
+
+@keyframes in-main {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.page-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.panel h2 {
+  margin-bottom: 10px;
+}
+
+.panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.kpi {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(34, 48, 61, 0.65);
+}
+
+.kpi-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.kpi-value {
+  margin-top: 6px;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 30px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 160, 177, 0.4);
+  background: rgba(9, 14, 21, 0.6);
+  color: var(--text);
+  padding: 10px 11px;
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 2px rgba(51, 185, 170, 0.18);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: linear-gradient(120deg, var(--accent-strong), var(--accent));
+  color: #041012;
+}
+
+.btn-secondary {
+  background: rgba(155, 193, 201, 0.16);
+  color: var(--text);
+  border: 1px solid rgba(155, 193, 201, 0.38);
+}
+
+.btn-danger {
+  background: rgba(255, 125, 143, 0.14);
+  color: var(--danger);
+  border: 1px solid rgba(255, 125, 143, 0.44);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(131, 163, 183, 0.18);
+  text-align: left;
+  font-size: 14px;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.message {
+  margin: 0;
+  font-size: 14px;
+}
+
+.message.error {
+  color: var(--danger);
+}
+
+.message.ok {
+  color: var(--accent);
+}
+
+.mono {
+  font-family: "Chakra Petch", monospace;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: 94vw;
+    margin-top: 14px;
+  }
+
+  .top-nav {
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .brand-block h1 {
+    font-size: 24px;
+  }
+}

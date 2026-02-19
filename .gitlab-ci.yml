@@ -1,0 +1,29 @@
+image: maven:3.9.9-eclipse-temurin-17
+
+stages:
+  - test
+  - build
+
+cache:
+  paths:
+    - .m2/repository
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+unit_and_integration_tests:
+  stage: test
+  script:
+    - mvn -B -q clean verify
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/*.xml
+
+build_jar:
+  stage: build
+  script:
+    - mvn -B -q -DskipTests package
+  artifacts:
+    paths:
+      - target/*.jar
