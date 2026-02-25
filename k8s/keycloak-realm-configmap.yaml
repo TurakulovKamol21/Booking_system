@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: autoguide-keycloak-realm
+  namespace: autoguide
+data:
+  realm-autoguide.json: |
+    {
+      "realm": "autoguide",
+      "enabled": true,
+      "registrationAllowed": true,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "roles": {
+        "realm": [
+          {"name": "super_admin", "description": "Super administrator role"},
+          {"name": "admin", "description": "Administrator role"},
+          {"name": "operator", "description": "Operator role"}
+        ]
+      },
+      "clients": [
+        {
+          "clientId": "autoguide-api",
+          "name": "autoguide-api",
+          "protocol": "openid-connect",
+          "publicClient": true,
+          "directAccessGrantsEnabled": true,
+          "standardFlowEnabled": true,
+          "serviceAccountsEnabled": false,
+          "redirectUris": ["*"],
+          "webOrigins": ["*"],
+          "attributes": {
+            "access.token.lifespan": "900"
+          }
+        }
+      ],
+      "users": [
+        {
+          "username": "super_admin_user",
+          "enabled": true,
+          "email": "super_admin_user@example.com",
+          "emailVerified": true,
+          "firstName": "Super",
+          "lastName": "Admin",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "superadmin123",
+              "temporary": false
+            }
+          ],
+          "realmRoles": ["super_admin", "admin", "operator"]
+        },
+        {
+          "username": "admin_user",
+          "enabled": true,
+          "email": "admin_user@example.com",
+          "emailVerified": true,
+          "firstName": "Admin",
+          "lastName": "User",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "admin123",
+              "temporary": false
+            }
+          ],
+          "realmRoles": ["admin", "operator"]
+        },
+        {
+          "username": "operator_user",
+          "enabled": true,
+          "email": "operator_user@example.com",
+          "emailVerified": true,
+          "firstName": "Operator",
+          "lastName": "User",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "operator123",
+              "temporary": false
+            }
+          ],
+          "realmRoles": ["operator"]
+        }
+      ]
+    }

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { useRouter, RouterLink } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { config } from "../lib/config";
 import {
@@ -15,6 +15,7 @@ import {
 import { formatPrice } from "../lib/roomVisuals";
 
 const auth = useAuthStore();
+const router = useRouter();
 
 const loading = ref(false);
 const error = ref("");
@@ -33,7 +34,8 @@ const homeContent = ref({
 
 const featuredRooms = ref([]);
 
-const canLoadProtectedData = computed(() => !config.requireAuth || auth.hasToken);
+const isBackofficeUser = computed(() => auth.hasSuperAdminRole || auth.hasAdminRole || auth.hasOperatorRole);
+const canLoadProtectedData = computed(() => !config.requireAuth || isBackofficeUser.value);
 
 const amenities = computed(() => (Array.isArray(homeContent.value.amenities) ? homeContent.value.amenities : []));
 const specialOffers = computed(() => (Array.isArray(homeContent.value.offers) ? homeContent.value.offers : []));
@@ -51,6 +53,14 @@ const featuredRoomCards = computed(() =>
     priceLabel: formatPrice(room.nightlyRate)
   }))
 );
+
+function openBooking() {
+  if (!auth.hasToken) {
+    router.push({ name: "login", query: { next: "/bookings" } });
+    return;
+  }
+  router.push({ name: "bookings" });
+}
 
 async function loadDashboard() {
   loading.value = true;
@@ -133,7 +143,7 @@ onMounted(loadDashboard);
         <p class="hero-subtitle">{{ homeContent.heroSubtitle }}</p>
 
         <div class="actions" style="margin-top: 18px">
-          <RouterLink class="btn btn-primary" to="/bookings">Start Booking</RouterLink>
+          <button class="btn btn-primary" type="button" @click="openBooking">Start Booking</button>
           <RouterLink class="btn btn-secondary" to="/rooms">Explore Rooms</RouterLink>
           <button class="btn btn-secondary" type="button" :disabled="loading" @click="loadDashboard">
             {{ loading ? "Refreshing..." : "Refresh Data" }}
@@ -148,7 +158,7 @@ onMounted(loadDashboard);
         </div>
 
         <p v-if="!canLoadProtectedData" class="message" style="margin-top: 12px">
-          Login qilsangiz, live room/guest/booking statistikalarini ko'rasiz.
+          Backoffice statistikalar faqat operator/admin/super_admin rollariga ko'rsatiladi.
         </p>
         <p v-if="error" class="message error" style="margin-top: 10px">{{ error }}</p>
       </div>
@@ -182,7 +192,7 @@ onMounted(loadDashboard);
             </div>
             <h4>{{ room.roomType }}</h4>
             <p>{{ room.shortDescription }}</p>
-            <RouterLink class="btn btn-secondary" to="/bookings">Reserve now</RouterLink>
+            <button class="btn btn-secondary" type="button" @click="openBooking">Reserve now</button>
           </div>
         </article>
 
@@ -222,7 +232,7 @@ onMounted(loadDashboard);
           <p class="offer-price">{{ offer.priceLabel }}</p>
           <h4>{{ offer.title }}</h4>
           <p>{{ offer.note }}</p>
-          <RouterLink class="btn btn-primary" to="/bookings">Select package</RouterLink>
+          <button class="btn btn-primary" type="button" @click="openBooking">Select package</button>
         </article>
         <article v-if="!specialOffers.length" class="offer-card">
           <p>Offers backenddan yuklanmadi.</p>

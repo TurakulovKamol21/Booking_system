@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoguide-keycloak
+  namespace: autoguide
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoguide-keycloak
+  template:
+    metadata:
+      labels:
+        app: autoguide-keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - start-dev
+            - --import-realm
+            - --http-port=8080
+          env:
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: autoguide-secrets
+                  key: keycloak-admin-user
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: autoguide-secrets
+                  key: keycloak-admin-password
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /realms/master
+              port: 8080
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /realms/master
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          volumeMounts:
+            - name: keycloak-realm
+              mountPath: /opt/keycloak/data/import/realm-autoguide.json
+              subPath: realm-autoguide.json
+      volumes:
+        - name: keycloak-realm
+          configMap:
+            name: autoguide-keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoguide-keycloak
+  namespace: autoguide
+spec:
+  selector:
+    app: autoguide-keycloak
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http

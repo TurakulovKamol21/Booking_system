@@ -32,7 +32,7 @@ public class HotelController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR','USER')")
     public Flux<HotelResponse> getAll() {
         return hotelService.getAll();
     }

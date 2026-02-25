@@ -11,7 +11,11 @@ public interface GuestRepository extends ReactiveCrudRepository<GuestEntity, UUI
 
     Flux<GuestEntity> findAllByHotelId(UUID hotelId);
 
+    Flux<GuestEntity> findAllByEmail(String email);
+
     Mono<GuestEntity> findByIdAndHotelId(UUID id, UUID hotelId);
+
+    Mono<GuestEntity> findByHotelIdAndEmail(UUID hotelId, String email);
 
     Mono<Long> countByHotelId(UUID hotelId);
 }

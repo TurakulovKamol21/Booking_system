@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoguide-frontend
+  namespace: autoguide
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoguide-frontend
+  template:
+    metadata:
+      labels:
+        app: autoguide-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: autoguide-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoguide-frontend
+  namespace: autoguide
+spec:
+  type: NodePort
+  selector:
+    app: autoguide-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+      protocol: TCP
+      name: http

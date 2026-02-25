@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: autoguide-mongo-pvc
+  namespace: autoguide
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoguide-mongo
+  namespace: autoguide
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoguide-mongo
+  template:
+    metadata:
+      labels:
+        app: autoguide-mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+              name: mongo
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: autoguide-mongo-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoguide-mongo
+  namespace: autoguide
+spec:
+  selector:
+    app: autoguide-mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
+      protocol: TCP
+      name: mongo

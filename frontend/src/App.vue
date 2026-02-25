@@ -7,18 +7,38 @@ import { config } from "./lib/config";
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+auth.syncSession();
 
 const publicLinks = [
   { name: "Home", to: "/" },
   { name: "Hotels", to: "/hotels" }
 ];
-const protectedLinks = [
+const backofficeLinks = [
   { name: "Guests", to: "/guests" },
   { name: "Rooms", to: "/rooms" },
   { name: "Bookings", to: "/bookings" }
 ];
 
-const showProtectedLinks = computed(() => !config.requireAuth || auth.hasToken);
+const isBackofficeUser = computed(() => auth.hasSuperAdminRole || auth.hasAdminRole || auth.hasOperatorRole);
+const navigationLinks = computed(() => {
+  const links = [...publicLinks];
+
+  if (!auth.hasToken && !config.requireAuth) {
+    links.push({ name: "Bookings", to: "/bookings" });
+    return links;
+  }
+
+  if (auth.hasToken && isBackofficeUser.value) {
+    links.push(...backofficeLinks);
+    return links;
+  }
+
+  if (auth.hasToken) {
+    links.push({ name: "Bookings", to: "/bookings" });
+  }
+
+  return links;
+});
 
 const authBadge = computed(() => {
   if (!config.requireAuth) {
@@ -36,7 +56,11 @@ const authBadge = computed(() => {
     return `Admin: ${auth.username}`;
   }
 
-  return `Operator: ${auth.username}`;
+  if (auth.hasOperatorRole) {
+    return `Operator: ${auth.username}`;
+  }
+
+  return `User: ${auth.username}`;
 });
 
 function logout() {
@@ -55,18 +79,7 @@ function logout() {
 
       <nav class="nav-links">
         <RouterLink
-          v-for="link in publicLinks"
-          :key="link.to"
-          :to="link.to"
-          class="nav-link"
-          :class="{ active: route.path === link.to }"
-        >
-          {{ link.name }}
-        </RouterLink>
-
-        <RouterLink
-          v-for="link in protectedLinks"
-          v-show="showProtectedLinks"
+          v-for="link in navigationLinks"
           :key="link.to"
           :to="link.to"
           class="nav-link"

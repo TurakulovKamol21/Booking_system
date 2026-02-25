@@ -35,10 +35,20 @@ export async function loginWithKeycloak({ username, password }) {
   return data;
 }
 
-export function getKeycloakRegistrationUrl() {
-  const redirectUri = encodeURIComponent(`${window.location.origin}/login`);
-  const clientId = encodeURIComponent(config.keycloakClientId);
-  return `${config.keycloakBase}/realms/${config.keycloakRealm}/protocol/openid-connect/registrations?client_id=${clientId}&response_type=code&scope=openid&redirect_uri=${redirectUri}`;
+export function getKeycloakRegistrationUrl(options = {}) {
+  const next = typeof options.next === "string" && options.next.trim() ? options.next.trim() : "/";
+  const redirectUri = `${window.location.origin}/login?next=${encodeURIComponent(next)}`;
+  const params = new URLSearchParams();
+  params.set("client_id", config.keycloakClientId);
+  params.set("response_type", "code");
+  params.set("scope", "openid");
+  params.set("redirect_uri", redirectUri);
+
+  if (typeof options.loginHint === "string" && options.loginHint.trim()) {
+    params.set("login_hint", options.loginHint.trim());
+  }
+
+  return `${config.keycloakBase}/realms/${config.keycloakRealm}/protocol/openid-connect/registrations?${params.toString()}`;
 }
 
 export async function fetchHealth() {
@@ -122,6 +132,15 @@ export async function fetchBookings(status) {
   return data;
 }
 
+export async function fetchMyBookings(status) {
+  const params = {};
+  if (status) {
+    params.status = status;
+  }
+  const { data } = await http.get("/api/v1/bookings/my", { params });
+  return data;
+}
+
 export async function fetchBookingById(id) {
   const { data } = await http.get(`/api/v1/bookings/${id}`);
   return data;
@@ -129,6 +148,11 @@ export async function fetchBookingById(id) {
 
 export async function createBooking(payload) {
   const { data } = await http.post("/api/v1/bookings", payload);
+  return data;
+}
+
+export async function createPublicBooking(payload) {
+  const { data } = await http.post("/api/v1/public/bookings", payload);
   return data;
 }
 

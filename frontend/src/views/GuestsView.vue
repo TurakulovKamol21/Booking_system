@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { useAuthStore } from "../stores/auth";
+import BaseModal from "../components/BaseModal.vue";
 import { createGuest, fetchGuests, fetchHotels, getErrorMessage } from "../lib/api";
 
 const auth = useAuthStore();
@@ -26,7 +27,28 @@ const hotelNameMap = computed(() =>
   }, {})
 );
 
+const authModalTitle = computed(() =>
+  authModalType.value === "admin" ? "Admin role required" : "Authentication required"
+);
+
+const authModalDescription = computed(() =>
+  authModalType.value === "admin"
+    ? "Bu amal faqat ADMIN yoki SUPER_ADMIN roli uchun ruxsat etilgan."
+    : "Guest qo'shishdan oldin tizimga kirishingiz kerak."
+);
+
+function openAuthModal(type, message) {
+  authModalType.value = type;
+  showAuthModal.value = true;
+  error.value = message;
+}
+
 async function loadGuests() {
+  if (!auth.hasToken) {
+    guests.value = [];
+    return;
+  }
+
   loading.value = true;
   error.value = "";
   try {
@@ -39,6 +61,12 @@ async function loadGuests() {
 }
 
 async function loadHotels() {
+  if (!auth.hasToken) {
+    hotels.value = [];
+    form.hotelId = "";
+    return;
+  }
+
   try {
     hotels.value = await fetchHotels();
     if (!form.hotelId && hotels.value.length) {
@@ -53,27 +81,46 @@ async function loadAll() {
   await Promise.all([loadGuests(), loadHotels()]);
 }
 
+function resetForm() {
+  form.fullName = "";
+  form.email = "";
+  if (auth.hasSuperAdminRole && hotels.value.length) {
+    form.hotelId = hotels.value[0].id;
+  }
+}
+
 async function submitGuest() {
-  if (!auth.hasToken) {
-    authModalType.value = "auth";
-    showAuthModal.value = true;
-    error.value = "Guest yaratish uchun avval login yoki register qiling.";
+  if (!auth.ensureValidSession()) {
+    openAuthModal("auth", "Guest yaratish uchun avval login yoki register qiling.");
     return;
   }
-  if (!auth.hasAdminRole) {
-    authModalType.value = "admin";
-    showAuthModal.value = true;
-    error.value = "Guest create/update/delete faqat ADMIN uchun.";
+
+  if (!auth.canManageGuests) {
+    openAuthModal("admin", "Guest create/update/delete faqat ADMIN yoki SUPER_ADMIN uchun.");
+    return;
+  }
+
+  const fullName = form.fullName.trim();
+  const email = form.email.trim().toLowerCase();
+
+  if (!fullName) {
+    error.value = "Full name majburiy.";
+    return;
+  }
+
+  if (!email) {
+    error.value = "Email majburiy.";
     return;
   }
 
   saving.value = true;
   error.value = "";
   ok.value = "";
+
   try {
     const payload = {
-      fullName: form.fullName,
-      email: form.email,
+      fullName,
+      email,
       hotelId: auth.hasSuperAdminRole ? form.hotelId || null : null
     };
 
@@ -82,12 +129,7 @@ async function submitGuest() {
     }
 
     await createGuest(payload);
-    form.fullName = "";
-    form.email = "";
-    if (auth.hasSuperAdminRole && hotels.value.length) {
-      form.hotelId = hotels.value[0].id;
-    }
-
+    resetForm();
     ok.value = "Guest created";
     await loadGuests();
   } catch (err) {
@@ -104,6 +146,7 @@ onMounted(loadAll);
   <section class="page-grid">
     <article class="panel">
       <h2>Guests</h2>
+      <p v-if="!auth.hasToken" class="message" style="margin-top: 8px">Guest bo'limidan foydalanish uchun login qiling.</p>
       <form class="form-grid" style="margin-top: 12px" @submit.prevent="submitGuest">
         <div class="field">
           <label>Full name</label>
@@ -115,7 +158,7 @@ onMounted(loadAll);
           <input v-model="form.email" type="email" maxlength="180" required />
         </div>
 
-        <div class="field" v-if="auth.hasSuperAdminRole">
+        <div v-if="auth.hasSuperAdminRole" class="field">
           <label>Hotel</label>
           <select v-model="form.hotelId" required>
             <option v-for="hotel in hotels" :key="hotel.id" :value="hotel.id">
@@ -167,56 +210,26 @@ onMounted(loadAll);
       </div>
     </article>
 
-    <div v-if="showAuthModal" class="auth-overlay">
-      <article class="auth-modal panel">
-        <h2>{{ authModalType === "admin" ? "Admin role required" : "Authentication required" }}</h2>
-        <p style="margin-top: 8px">
-          {{
-            authModalType === "admin"
-              ? "Bu amal faqat ADMIN roli uchun ruxsat etilgan."
-              : "Guest qo'shishdan oldin tizimga kirishingiz kerak."
-          }}
-        </p>
-        <div class="actions" style="margin-top: 14px">
-          <RouterLink
-            class="btn btn-primary"
-            to="/login"
-            @click="
-              showAuthModal = false;
-              if (authModalType === 'admin') auth.logout();
-            "
-          >
-            {{ authModalType === "admin" ? "Login as Admin" : "Login" }}
-          </RouterLink>
-          <RouterLink
-            v-if="authModalType !== 'admin'"
-            class="btn btn-secondary"
-            to="/register"
-            @click="showAuthModal = false"
-          >
-            Register
-          </RouterLink>
-          <button class="btn btn-danger" type="button" @click="showAuthModal = false">
-            Close
-          </button>
-        </div>
-      </article>
-    </div>
+    <BaseModal v-model="showAuthModal" :title="authModalTitle" @close="authModalType = 'auth'">
+      <template #default>
+        <p>{{ authModalDescription }}</p>
+      </template>
+      <template #actions>
+        <RouterLink
+          class="btn btn-primary"
+          to="/login"
+          @click="
+            showAuthModal = false;
+            if (authModalType === 'admin') auth.logout();
+          "
+        >
+          {{ authModalType === "admin" ? "Login as Admin" : "Login" }}
+        </RouterLink>
+        <RouterLink v-if="authModalType !== 'admin'" class="btn btn-secondary" to="/register" @click="showAuthModal = false">
+          Register
+        </RouterLink>
+        <button class="btn btn-danger" type="button" @click="showAuthModal = false">Close</button>
+      </template>
+    </BaseModal>
   </section>
 </template>
-
-<style scoped>
-.auth-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(3, 8, 14, 0.72);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  z-index: 1000;
-}
-
-.auth-modal {
-  width: min(520px, 94vw);
-}
-</style>

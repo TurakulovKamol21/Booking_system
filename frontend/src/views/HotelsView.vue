@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { useAuthStore } from "../stores/auth";
+import BaseModal from "../components/BaseModal.vue";
 import {
   createHotel,
   deleteHotel,
@@ -22,8 +23,12 @@ const manageError = ref("");
 const manageOk = ref("");
 const editingHotelId = ref("");
 const selectedHotelId = ref("");
+const showDeleteModal = ref(false);
+const deletingHotel = ref(false);
+const pendingDeleteHotel = ref(null);
+
 const fallbackHotelImage =
-  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1800&q=80";
+  "/assets/rooms/hero-hotel.svg";
 
 const hotelForm = reactive({
   code: "",
@@ -48,6 +53,11 @@ async function loadHotels() {
   error.value = "";
   try {
     hotels.value = await fetchPublicHotels();
+
+    if (selectedHotelId.value && !hotels.value.some((hotel) => hotel.id === selectedHotelId.value)) {
+      selectedHotelId.value = "";
+      rooms.value = [];
+    }
   } catch (err) {
     error.value = getErrorMessage(err);
   } finally {
@@ -101,8 +111,25 @@ function startEditHotel(hotel) {
   manageOk.value = "";
 }
 
+function buildHotelPayload() {
+  const payload = {
+    code: hotelForm.code.trim().toUpperCase(),
+    name: hotelForm.name.trim(),
+    city: hotelForm.city.trim(),
+    country: hotelForm.country.trim(),
+    addressLine: hotelForm.addressLine.trim(),
+    imageUrl: hotelForm.imageUrl.trim() || null
+  };
+
+  if (!payload.code || !payload.name || !payload.city || !payload.country || !payload.addressLine) {
+    throw new Error("Code, name, city, country va address line majburiy.");
+  }
+
+  return payload;
+}
+
 async function submitHotel() {
-  if (!auth.hasSuperAdminRole) {
+  if (!auth.canManageHotels) {
     manageError.value = "Hotel create/edit/delete faqat SUPER_ADMIN uchun.";
     return;
   }
@@ -112,14 +139,7 @@ async function submitHotel() {
   manageOk.value = "";
 
   try {
-    const payload = {
-      code: hotelForm.code,
-      name: hotelForm.name,
-      city: hotelForm.city,
-      country: hotelForm.country,
-      addressLine: hotelForm.addressLine,
-      imageUrl: hotelForm.imageUrl || null
-    };
+    const payload = buildHotelPayload();
 
     if (editingHotelId.value) {
       await updateHotel(editingHotelId.value, payload);
@@ -138,24 +158,30 @@ async function submitHotel() {
   }
 }
 
-async function removeHotel(hotel) {
-  if (!auth.hasSuperAdminRole) {
+function requestDeleteHotel(hotel) {
+  if (!auth.canManageHotels) {
     manageError.value = "Hotel delete faqat SUPER_ADMIN uchun.";
     return;
   }
 
-  const agreed = window.confirm(`Delete hotel "${hotel.name}"?`);
-  if (!agreed) {
+  pendingDeleteHotel.value = hotel;
+  showDeleteModal.value = true;
+}
+
+async function confirmDeleteHotel() {
+  if (!pendingDeleteHotel.value) {
+    showDeleteModal.value = false;
     return;
   }
 
+  deletingHotel.value = true;
   manageSaving.value = true;
   manageError.value = "";
   manageOk.value = "";
 
   try {
-    await deleteHotel(hotel.id);
-    if (selectedHotelId.value === hotel.id) {
+    await deleteHotel(pendingDeleteHotel.value.id);
+    if (selectedHotelId.value === pendingDeleteHotel.value.id) {
       selectedHotelId.value = "";
       rooms.value = [];
     }
@@ -165,8 +191,16 @@ async function removeHotel(hotel) {
   } catch (err) {
     manageError.value = getErrorMessage(err);
   } finally {
+    deletingHotel.value = false;
     manageSaving.value = false;
+    showDeleteModal.value = false;
+    pendingDeleteHotel.value = null;
   }
+}
+
+function cancelDeleteHotel() {
+  showDeleteModal.value = false;
+  pendingDeleteHotel.value = null;
 }
 
 onMounted(loadHotels);
@@ -185,7 +219,7 @@ onMounted(loadHotels);
       <p v-if="error" class="message error" style="margin-top: 10px">{{ error }}</p>
     </article>
 
-    <article v-if="auth.hasSuperAdminRole" class="panel">
+    <article v-if="auth.canManageHotels" class="panel">
       <h2>Hotel Management (SUPER_ADMIN)</h2>
       <form class="form-grid" style="margin-top: 12px" @submit.prevent="submitHotel">
         <div class="field">
@@ -245,10 +279,10 @@ onMounted(loadHotels);
               <td>{{ hotel.country }}</td>
               <td>
                 <div class="table-actions">
-                  <button class="btn btn-secondary" type="button" :disabled="manageSaving" @click="startEditHotel(hotel)">
+                  <button class="btn btn-secondary" type="button" :disabled="manageSaving || deletingHotel" @click="startEditHotel(hotel)">
                     Edit
                   </button>
-                  <button class="btn btn-danger" type="button" :disabled="manageSaving" @click="removeHotel(hotel)">
+                  <button class="btn btn-danger" type="button" :disabled="manageSaving || deletingHotel" @click="requestDeleteHotel(hotel)">
                     Delete
                   </button>
                 </div>
@@ -325,70 +359,21 @@ onMounted(loadHotels);
         </article>
       </div>
     </article>
+
+    <BaseModal v-model="showDeleteModal" title="Delete hotel" :dismissible="!deletingHotel" @close="pendingDeleteHotel = null">
+      <template #default>
+        <p v-if="pendingDeleteHotel">
+          <span class="mono">{{ pendingDeleteHotel.code }}</span> / {{ pendingDeleteHotel.name }} hotelini o'chirasizmi?
+        </p>
+      </template>
+      <template #actions>
+        <button class="btn btn-danger" type="button" :disabled="deletingHotel" @click="confirmDeleteHotel">
+          {{ deletingHotel ? "Deleting..." : "Delete" }}
+        </button>
+        <button class="btn btn-secondary" type="button" :disabled="deletingHotel" @click="cancelDeleteHotel">
+          Cancel
+        </button>
+      </template>
+    </BaseModal>
   </section>
 </template>
-
-<style scoped>
-.hotel-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.hotel-card {
-  border: 1px solid #e2e6f0;
-  border-radius: 16px;
-  background: #fff;
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-  display: grid;
-  gap: 0;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-  overflow: hidden;
-}
-
-.hotel-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 22px rgba(31, 45, 71, 0.1);
-  border-color: #ffd2c7;
-}
-
-.hotel-card.active {
-  border-color: #ff8f76;
-  background: #fff8f5;
-  box-shadow: 0 12px 24px rgba(240, 68, 39, 0.12);
-}
-
-.hotel-card h4 {
-  margin: 0;
-  font-size: 20px;
-  color: #1a2235;
-}
-
-.hotel-card p {
-  margin: 0;
-}
-
-.hotel-image {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-}
-
-.hotel-body {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px 14px;
-}
-
-.address {
-  color: #6a7388;
-}
-
-.table-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-</style>

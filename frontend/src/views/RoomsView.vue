@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { useAuthStore } from "../stores/auth";
+import BaseModal from "../components/BaseModal.vue";
 import { createRoom, deleteRoom, fetchHotels, fetchRooms, getErrorMessage, updateRoom } from "../lib/api";
 import { formatPrice } from "../lib/roomVisuals";
 
@@ -16,6 +17,9 @@ const authModalType = ref("auth");
 const imageInputRef = ref(null);
 const editingRoomId = ref("");
 const actionLoading = ref(false);
+const deleteLoading = ref(false);
+const showDeleteModal = ref(false);
+const pendingDeleteRoom = ref(null);
 
 const form = reactive({
   roomNumber: "",
@@ -48,7 +52,28 @@ const roomCards = computed(() =>
   }))
 );
 
+const authModalTitle = computed(() =>
+  authModalType.value === "admin" ? "Admin role required" : "Authentication required"
+);
+
+const authModalDescription = computed(() =>
+  authModalType.value === "admin"
+    ? "Bu amal faqat ADMIN roli uchun ruxsat etilgan."
+    : "Room qo'shishdan oldin tizimga kirishingiz kerak."
+);
+
+function openAuthModal(type, message) {
+  authModalType.value = type;
+  showAuthModal.value = true;
+  error.value = message;
+}
+
 async function loadRooms() {
+  if (!auth.hasToken) {
+    rooms.value = [];
+    return;
+  }
+
   loading.value = true;
   error.value = "";
   try {
@@ -61,6 +86,12 @@ async function loadRooms() {
 }
 
 async function loadHotels() {
+  if (!auth.hasToken) {
+    hotels.value = [];
+    form.hotelId = "";
+    return;
+  }
+
   try {
     hotels.value = await fetchHotels();
     if (!form.hotelId && hotels.value.length) {
@@ -77,39 +108,71 @@ async function loadAll() {
 
 function onImageSelected(event) {
   const file = event.target.files?.[0] || null;
+
+  if (file && !file.type.startsWith("image/")) {
+    form.imageFile = null;
+    error.value = "Faqat rasm faylini yuklash mumkin.";
+    if (imageInputRef.value) {
+      imageInputRef.value.value = "";
+    }
+    return;
+  }
+
   form.imageFile = file;
 }
 
+function resetCreateForm() {
+  form.roomNumber = "";
+  form.roomType = "";
+  form.nightlyRate = "";
+  form.imageFile = null;
+  form.shortDescription = "";
+  if (imageInputRef.value) {
+    imageInputRef.value.value = "";
+  }
+  if (auth.hasSuperAdminRole && hotels.value.length) {
+    form.hotelId = hotels.value[0].id;
+  }
+}
+
 async function submitRoom() {
-  if (!auth.hasToken) {
-    authModalType.value = "auth";
-    showAuthModal.value = true;
-    error.value = "Room yaratish uchun avval login yoki register qiling.";
+  if (!auth.ensureValidSession()) {
+    openAuthModal("auth", "Room yaratish uchun avval login yoki register qiling.");
     return;
   }
-  if (!auth.hasAdminRole) {
-    authModalType.value = "admin";
-    showAuthModal.value = true;
-    error.value = "Room create/update/delete faqat ADMIN uchun.";
+
+  if (!auth.canManageRooms) {
+    openAuthModal("admin", "Room create/update/delete faqat ADMIN uchun.");
+    return;
+  }
+
+  const nightlyRate = Number(form.nightlyRate);
+  if (!Number.isFinite(nightlyRate) || nightlyRate <= 0) {
+    error.value = "Nightly rate 0 dan katta bo'lishi kerak.";
+    return;
+  }
+
+  if (!form.imageFile) {
+    error.value = "Room rasm faylini tanlang.";
     return;
   }
 
   saving.value = true;
   error.value = "";
   ok.value = "";
+
   try {
-    if (!form.imageFile) {
-      throw new Error("Room rasm faylini tanlang.");
+    const payload = new FormData();
+    payload.set("roomNumber", form.roomNumber.trim());
+    payload.set("roomType", form.roomType.trim());
+    payload.set("nightlyRate", String(nightlyRate));
+    payload.set("imageFile", form.imageFile);
+
+    const shortDescription = form.shortDescription.trim();
+    if (shortDescription) {
+      payload.set("shortDescription", shortDescription);
     }
 
-    const payload = new FormData();
-    payload.set("roomNumber", form.roomNumber);
-    payload.set("roomType", form.roomType);
-    payload.set("nightlyRate", String(Number(form.nightlyRate)));
-    payload.set("imageFile", form.imageFile);
-    if (form.shortDescription) {
-      payload.set("shortDescription", form.shortDescription);
-    }
     if (auth.hasSuperAdminRole && form.hotelId) {
       payload.set("hotelId", form.hotelId);
     }
@@ -119,19 +182,7 @@ async function submitRoom() {
     }
 
     await createRoom(payload);
-
-    form.roomNumber = "";
-    form.roomType = "";
-    form.nightlyRate = "";
-    form.imageFile = null;
-    form.shortDescription = "";
-    if (imageInputRef.value) {
-      imageInputRef.value.value = "";
-    }
-    if (auth.hasSuperAdminRole && hotels.value.length) {
-      form.hotelId = hotels.value[0].id;
-    }
-
+    resetCreateForm();
     ok.value = "Room created";
     await loadRooms();
   } catch (err) {
@@ -145,10 +196,11 @@ function startEditRoom(room) {
   if (!room) {
     return;
   }
+
   editingRoomId.value = room.id;
   editForm.roomNumber = room.roomNumber;
   editForm.roomType = room.roomType;
-  editForm.nightlyRate = room.nightlyRate;
+  editForm.nightlyRate = String(room.nightlyRate);
   editForm.shortDescription = room.shortDescription || "";
   error.value = "";
   ok.value = "";
@@ -172,8 +224,14 @@ function cancelEditRoom() {
 }
 
 async function submitRoomUpdate() {
-  if (!auth.hasAdminRole || !editingRoomId.value) {
+  if (!auth.canManageRooms || !editingRoomId.value) {
     error.value = "Room edit faqat ADMIN uchun.";
+    return;
+  }
+
+  const nightlyRate = Number(editForm.nightlyRate);
+  if (!Number.isFinite(nightlyRate) || nightlyRate <= 0) {
+    error.value = "Nightly rate 0 dan katta bo'lishi kerak.";
     return;
   }
 
@@ -183,10 +241,10 @@ async function submitRoomUpdate() {
 
   try {
     await updateRoom(editingRoomId.value, {
-      roomNumber: editForm.roomNumber,
-      roomType: editForm.roomType,
-      nightlyRate: Number(editForm.nightlyRate),
-      shortDescription: editForm.shortDescription || null
+      roomNumber: editForm.roomNumber.trim(),
+      roomType: editForm.roomType.trim(),
+      nightlyRate,
+      shortDescription: editForm.shortDescription.trim() || null
     });
     ok.value = "Room updated";
     cancelEditRoom();
@@ -198,23 +256,34 @@ async function submitRoomUpdate() {
   }
 }
 
-async function removeRoom(room) {
-  if (!auth.hasAdminRole) {
+function requestDeleteRoom(room) {
+  if (!auth.canManageRooms) {
     error.value = "Room delete faqat ADMIN uchun.";
     return;
   }
-  const agreed = window.confirm(`Delete room ${room.roomNumber}?`);
-  if (!agreed) {
+
+  pendingDeleteRoom.value = room;
+  showDeleteModal.value = true;
+}
+
+function cancelDeleteRoom() {
+  showDeleteModal.value = false;
+  pendingDeleteRoom.value = null;
+}
+
+async function confirmDeleteRoom() {
+  if (!pendingDeleteRoom.value) {
+    showDeleteModal.value = false;
     return;
   }
 
-  actionLoading.value = true;
+  deleteLoading.value = true;
   error.value = "";
   ok.value = "";
 
   try {
-    await deleteRoom(room.id);
-    if (editingRoomId.value === room.id) {
+    await deleteRoom(pendingDeleteRoom.value.id);
+    if (editingRoomId.value === pendingDeleteRoom.value.id) {
       cancelEditRoom();
     }
     ok.value = "Room deleted";
@@ -222,7 +291,9 @@ async function removeRoom(room) {
   } catch (err) {
     error.value = getErrorMessage(err);
   } finally {
-    actionLoading.value = false;
+    deleteLoading.value = false;
+    showDeleteModal.value = false;
+    pendingDeleteRoom.value = null;
   }
 }
 
@@ -234,6 +305,7 @@ onMounted(loadAll);
     <article class="panel">
       <h2>Rooms Management</h2>
       <p style="margin-top: 8px">Create/update/delete amallari faqat ADMIN roli uchun ochiq.</p>
+      <p v-if="!auth.hasToken" class="message" style="margin-top: 8px">Room bo'limini ishlatish uchun login qiling.</p>
 
       <form class="form-grid" style="margin-top: 12px" @submit.prevent="submitRoom">
         <div class="field">
@@ -248,7 +320,7 @@ onMounted(loadAll);
 
         <div class="field">
           <label>Nightly rate</label>
-          <input v-model="form.nightlyRate" type="number" min="0" step="0.01" required />
+          <input v-model="form.nightlyRate" type="number" min="0.01" step="0.01" required />
         </div>
 
         <div class="field">
@@ -261,7 +333,7 @@ onMounted(loadAll);
           <input v-model="form.shortDescription" type="text" maxlength="280" placeholder="Room card description" />
         </div>
 
-        <div class="field" v-if="auth.hasSuperAdminRole">
+        <div v-if="auth.hasSuperAdminRole" class="field">
           <label>Hotel</label>
           <select v-model="form.hotelId" required>
             <option v-for="hotel in hotels" :key="hotel.id" :value="hotel.id">
@@ -284,7 +356,7 @@ onMounted(loadAll);
       <p v-if="ok" class="message ok" style="margin-top: 10px">{{ ok }}</p>
     </article>
 
-    <article v-if="auth.hasAdminRole" class="panel">
+    <article v-if="auth.canManageRooms" class="panel">
       <h2>Room Edit/Delete (ADMIN)</h2>
 
       <form class="form-grid" style="margin-top: 12px" @submit.prevent="submitRoomUpdate">
@@ -313,7 +385,7 @@ onMounted(loadAll);
           <input
             v-model="editForm.nightlyRate"
             type="number"
-            min="0"
+            min="0.01"
             step="0.01"
             required
             :disabled="!editingRoomId"
@@ -397,11 +469,11 @@ onMounted(loadAll);
               <td class="mono">{{ room.imageUrl }}</td>
               <td>{{ new Date(room.createdAt).toLocaleString() }}</td>
               <td>
-                <div class="table-actions" v-if="auth.hasAdminRole">
-                  <button class="btn btn-secondary" type="button" :disabled="actionLoading" @click="startEditRoom(room)">
+                <div v-if="auth.canManageRooms" class="table-actions">
+                  <button class="btn btn-secondary" type="button" :disabled="actionLoading || deleteLoading" @click="startEditRoom(room)">
                     Edit
                   </button>
-                  <button class="btn btn-danger" type="button" :disabled="actionLoading" @click="removeRoom(room)">
+                  <button class="btn btn-danger" type="button" :disabled="actionLoading || deleteLoading" @click="requestDeleteRoom(room)">
                     Delete
                   </button>
                 </div>
@@ -415,63 +487,47 @@ onMounted(loadAll);
       </div>
     </article>
 
-    <div v-if="showAuthModal" class="auth-overlay">
-      <article class="auth-modal panel">
-        <h2>{{ authModalType === "admin" ? "Admin role required" : "Authentication required" }}</h2>
-        <p style="margin-top: 8px">
-          {{
-            authModalType === "admin"
-              ? "Bu amal faqat ADMIN roli uchun ruxsat etilgan."
-              : "Room qo'shishdan oldin tizimga kirishingiz kerak."
-          }}
+    <BaseModal v-model="showAuthModal" :title="authModalTitle" @close="authModalType = 'auth'">
+      <template #default>
+        <p>{{ authModalDescription }}</p>
+      </template>
+      <template #actions>
+        <RouterLink
+          class="btn btn-primary"
+          to="/login"
+          @click="
+            showAuthModal = false;
+            if (authModalType === 'admin') auth.logout();
+          "
+        >
+          {{ authModalType === "admin" ? "Login as Admin" : "Login" }}
+        </RouterLink>
+        <RouterLink v-if="authModalType !== 'admin'" class="btn btn-secondary" to="/register" @click="showAuthModal = false">
+          Register
+        </RouterLink>
+        <button class="btn btn-danger" type="button" @click="showAuthModal = false">Close</button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      v-model="showDeleteModal"
+      title="Delete room"
+      :dismissible="!deleteLoading"
+      @close="pendingDeleteRoom = null"
+    >
+      <template #default>
+        <p v-if="pendingDeleteRoom">
+          Room <span class="mono">{{ pendingDeleteRoom.roomNumber }}</span> ni o'chirishni tasdiqlaysizmi?
         </p>
-        <div class="actions" style="margin-top: 14px">
-          <RouterLink
-            class="btn btn-primary"
-            to="/login"
-            @click="
-              showAuthModal = false;
-              if (authModalType === 'admin') auth.logout();
-            "
-          >
-            {{ authModalType === "admin" ? "Login as Admin" : "Login" }}
-          </RouterLink>
-          <RouterLink
-            v-if="authModalType !== 'admin'"
-            class="btn btn-secondary"
-            to="/register"
-            @click="showAuthModal = false"
-          >
-            Register
-          </RouterLink>
-          <button class="btn btn-danger" type="button" @click="showAuthModal = false">
-            Close
-          </button>
-        </div>
-      </article>
-    </div>
+      </template>
+      <template #actions>
+        <button class="btn btn-danger" type="button" :disabled="deleteLoading" @click="confirmDeleteRoom">
+          {{ deleteLoading ? "Deleting..." : "Delete" }}
+        </button>
+        <button class="btn btn-secondary" type="button" :disabled="deleteLoading" @click="cancelDeleteRoom">
+          Cancel
+        </button>
+      </template>
+    </BaseModal>
   </section>
 </template>
-
-<style scoped>
-.auth-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(18, 28, 45, 0.58);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  z-index: 1000;
-}
-
-.auth-modal {
-  width: min(520px, 94vw);
-}
-
-.table-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-</style>

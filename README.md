@@ -36,29 +36,65 @@ Reactive hotel booking backend aligned with Java 17 + Spring Boot 3.x requiremen
 - `PATCH /api/v1/bookings/{id}/status`
 - `GET /api/v1/booking-recommendations/{bookingId}`
 
-## Run Locally
-### 1) Start infrastructure + backend (Docker)
+## Run Locally (Step-by-step)
+### Variant A (recommended): infra in Docker, backend with Maven, frontend with Vite
+1. Start infra services:
 ```bash
-docker compose up -d --build
+docker compose up -d postgres mongo redis keycloak
 ```
-
-Swagger (Docker backend):
-- [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-
-### 2) Run backend via Maven (optional, local mode)
-Default app port from `application.yml` is `8090`:
+2. Verify infra is up:
+```bash
+docker compose ps
+```
+3. Run backend:
 ```bash
 mvn spring-boot:run
 ```
-
-Custom port example:
+4. Check backend:
+- [http://localhost:8090/actuator/health](http://localhost:8090/actuator/health)
+- [http://localhost:8090/swagger-ui.html](http://localhost:8090/swagger-ui.html)
+5. In a new terminal, run frontend:
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=18080 --app.security.enabled=false"
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+6. Open frontend:
+- [http://localhost:5173](http://localhost:5173)
+
+Frontend `.env` should point to:
+```dotenv
+VITE_BACKEND_TARGET=http://localhost:8090
+VITE_KEYCLOAK_TARGET=http://localhost:8081
+VITE_REQUIRE_AUTH=true
 ```
 
-Swagger (Maven backend):
+### Variant B: backend in Docker Compose
+```bash
+docker compose up -d --build
+```
+Swagger:
 - [http://localhost:8090/swagger-ui.html](http://localhost:8090/swagger-ui.html)
-- [http://localhost:18080/swagger-ui.html](http://localhost:18080/swagger-ui.html) (if custom port is used)
+
+## Kubernetes
+Kubernetes manifests are available in:
+- `k8s`
+
+Quick start:
+```bash
+eval "$(minikube docker-env)"
+docker build -t autoguide-backend:latest .
+docker build -t autoguide-frontend:latest ./frontend
+kubectl apply -k k8s
+kubectl -n autoguide port-forward svc/autoguide-frontend 8080:80
+```
+
+Then open:
+- [http://localhost:8080](http://localhost:8080)
+
+Detailed guide:
+- `k8s/README.md`
 
 ### 3) Get JWT token from Keycloak
 ```bash
@@ -79,20 +115,6 @@ curl -X GET "http://localhost:8090/api/v1/guests" \
 ## Frontend (Vue, separate project)
 Frontend lives in:
 - `frontend`
-
-Run:
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
-```
-
-Open:
-- [http://localhost:5173](http://localhost:5173)
-
-Important:
-- In `frontend/.env`, set `VITE_BACKEND_TARGET` to your backend port (`8090` or `18080`).
 
 ## Build and Test
 ```bash

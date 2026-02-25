@@ -3,10 +3,12 @@ package com.autoguide.backend.service;
 import com.autoguide.backend.dto.BookingResponse;
 import com.autoguide.backend.dto.CreateBookingRequest;
 import com.autoguide.backend.model.BookingEntity;
+import com.autoguide.backend.model.BookingPaymentStatus;
 import com.autoguide.backend.model.BookingStatus;
 import com.autoguide.backend.model.GuestEntity;
 import com.autoguide.backend.model.RoomEntity;
 import com.autoguide.backend.repository.r2dbc.BookingRepository;
+import com.autoguide.backend.repository.r2dbc.GuestRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -58,6 +60,9 @@ class BookingServiceTest {
     @Mock
     private HotelAccessService hotelAccessService;
 
+    @Mock
+    private GuestRepository guestRepository;
+
     private BookingService bookingService;
     private ObjectMapper objectMapper;
     private UUID hotelId;
@@ -77,7 +82,8 @@ class BookingServiceTest {
                 bookingRecommendationService,
                 redisTemplate,
                 objectMapper,
-                hotelAccessService
+                hotelAccessService,
+                guestRepository
         );
 
         lenient().when(hotelAccessService.currentScope())
@@ -112,6 +118,7 @@ class BookingServiceTest {
                     org.junit.jupiter.api.Assertions.assertEquals(guestId, response.guestId());
                     org.junit.jupiter.api.Assertions.assertEquals(roomId, response.roomId());
                     org.junit.jupiter.api.Assertions.assertEquals(BookingStatus.CREATED, response.status());
+                    org.junit.jupiter.api.Assertions.assertEquals(BookingPaymentStatus.UNPAID, response.paymentStatus());
                     org.junit.jupiter.api.Assertions.assertEquals("John Guest", response.guestFullName());
                     org.junit.jupiter.api.Assertions.assertEquals("501", response.roomNumber());
                 })
@@ -133,6 +140,12 @@ class BookingServiceTest {
                 LocalDate.now().plusDays(1),
                 LocalDate.now().plusDays(2),
                 BookingStatus.CREATED,
+                new BigDecimal("120.00"),
+                new BigDecimal("0.00"),
+                BookingPaymentStatus.UNPAID,
+                null,
+                null,
+                false,
                 Instant.now(),
                 Instant.now()
         );

@@ -51,6 +51,12 @@ public class BookingController {
         return bookingService.getAll(status);
     }
 
+    @GetMapping("/my")
+    @PreAuthorize("isAuthenticated()")
+    public Flux<BookingResponse> getMyBookings(@RequestParam(required = false) BookingStatus status) {
+        return bookingService.getMyBookings(status);
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPERATOR')")
     public Mono<BookingResponse> updateStatus(@PathVariable UUID id,

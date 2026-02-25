@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { getErrorMessage } from "../lib/api";
@@ -10,18 +10,34 @@ const route = useRoute();
 const auth = useAuthStore();
 
 const form = reactive({
-  username: "operator_user",
-  password: "operator123"
+  username: "",
+  password: ""
 });
 
 const loading = ref(false);
 const error = ref("");
 
+const canSubmit = computed(() => Boolean(form.username.trim() && form.password));
+const registerTarget = computed(() => {
+  const next = typeof route.query.next === "string" ? route.query.next : "/";
+  return { name: "register", query: { next } };
+});
+
 async function submitLogin() {
+  if (!canSubmit.value) {
+    error.value = "Username va password kiriting.";
+    return;
+  }
+
   loading.value = true;
   error.value = "";
+
   try {
-    await auth.login(form);
+    await auth.login({
+      username: form.username.trim(),
+      password: form.password
+    });
+
     const next = typeof route.query.next === "string" ? route.query.next : "/";
     router.push(next);
   } catch (err) {
@@ -55,10 +71,10 @@ function continueWithoutToken() {
         </div>
 
         <div class="actions" style="grid-column: 1 / -1">
-          <button class="btn btn-primary" type="submit" :disabled="loading">
+          <button class="btn btn-primary" type="submit" :disabled="loading || !canSubmit">
             {{ loading ? "Signing in..." : "Login" }}
           </button>
-          <RouterLink class="btn btn-secondary" to="/register">Register</RouterLink>
+          <RouterLink class="btn btn-secondary" :to="registerTarget">Register</RouterLink>
           <button
             v-if="!config.requireAuth"
             class="btn btn-secondary"
@@ -71,13 +87,6 @@ function continueWithoutToken() {
       </form>
 
       <p v-if="error" class="message error" style="margin-top: 10px">{{ error }}</p>
-
-      <p class="message" style="margin-top: 14px">
-        Demo user: <span class="mono">operator_user / operator123</span>
-      </p>
-      <p class="message" style="margin-top: 6px">
-        Admin user: <span class="mono">admin_user / admin123</span>
-      </p>
     </article>
   </section>
 </template>

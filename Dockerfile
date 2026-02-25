@@ -10,5 +10,5 @@ WORKDIR /app
 RUN useradd -r -u 1001 spring
 COPY --from=builder /app/target/autoguide-backend-0.0.1-SNAPSHOT.jar app.jar
 USER spring
-EXPOSE 8080
+EXPOSE 8090
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -3,6 +3,7 @@ package com.autoguide.backend.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -18,6 +19,12 @@ public class BookingEntity {
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private BookingStatus status;
+    private BigDecimal totalAmount;
+    private BigDecimal prepaymentAmount;
+    private BookingPaymentStatus paymentStatus;
+    private String paymentMethod;
+    private String paymentReference;
+    private boolean prepaid;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -32,6 +39,12 @@ public class BookingEntity {
             LocalDate checkInDate,
             LocalDate checkOutDate,
             BookingStatus status,
+            BigDecimal totalAmount,
+            BigDecimal prepaymentAmount,
+            BookingPaymentStatus paymentStatus,
+            String paymentMethod,
+            String paymentReference,
+            boolean prepaid,
             Instant createdAt,
             Instant updatedAt
     ) {
@@ -42,6 +55,12 @@ public class BookingEntity {
         this.checkInDate = checkInDate;
         this.checkOutDate = checkOutDate;
         this.status = status;
+        this.totalAmount = totalAmount;
+        this.prepaymentAmount = prepaymentAmount;
+        this.paymentStatus = paymentStatus;
+        this.paymentMethod = paymentMethod;
+        this.paymentReference = paymentReference;
+        this.prepaid = prepaid;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -53,10 +72,32 @@ public class BookingEntity {
             LocalDate checkInDate,
             LocalDate checkOutDate,
             BookingStatus status,
+            BigDecimal totalAmount,
+            BigDecimal prepaymentAmount,
+            BookingPaymentStatus paymentStatus,
+            String paymentMethod,
+            String paymentReference,
+            boolean prepaid,
             Instant createdAt,
             Instant updatedAt
     ) {
-        this(id, null, guestId, roomId, checkInDate, checkOutDate, status, createdAt, updatedAt);
+        this(
+                id,
+                null,
+                guestId,
+                roomId,
+                checkInDate,
+                checkOutDate,
+                status,
+                totalAmount,
+                prepaymentAmount,
+                paymentStatus,
+                paymentMethod,
+                paymentReference,
+                prepaid,
+                createdAt,
+                updatedAt
+        );
     }
 
     public UUID getId() {
@@ -113,6 +154,54 @@ public class BookingEntity {
 
     public void setStatus(BookingStatus status) {
         this.status = status;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public BigDecimal getPrepaymentAmount() {
+        return prepaymentAmount;
+    }
+
+    public void setPrepaymentAmount(BigDecimal prepaymentAmount) {
+        this.prepaymentAmount = prepaymentAmount;
+    }
+
+    public BookingPaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(BookingPaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentReference() {
+        return paymentReference;
+    }
+
+    public void setPaymentReference(String paymentReference) {
+        this.paymentReference = paymentReference;
+    }
+
+    public boolean isPrepaid() {
+        return prepaid;
+    }
+
+    public void setPrepaid(boolean prepaid) {
+        this.prepaid = prepaid;
     }
 
     public Instant getCreatedAt() {
